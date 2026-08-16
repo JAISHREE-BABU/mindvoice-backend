@@ -1,0 +1,122 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Get a free hosted Postgres database in seconds: `npx create-db`
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum ProficiencyLevel {
+  A1
+  A2
+  B1
+  B2
+  C1
+  C2
+}
+
+model Language {
+  id        String   @id @default(uuid())
+  code      String   @unique
+  name      String
+  flagEmoji String?
+  createdAt DateTime @default(now())
+
+  usersAsNative User[] @relation("NativeLanguage")
+  usersAsTarget User[] @relation("TargetLanguage")
+}
+
+model User {
+  id               String           @id @default(uuid())
+  email            String           @unique
+  passwordHash     String
+  name             String
+  proficiencyLevel ProficiencyLevel @default(A1)
+  xp               Int              @default(0)
+
+  nativeLanguageId String
+  nativeLanguage   Language @relation("NativeLanguage", fields: [nativeLanguageId], references: [id])
+
+  targetLanguageId String
+  targetLanguage   Language @relation("TargetLanguage", fields: [targetLanguageId], references: [id])
+
+  refreshTokens RefreshToken[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  conversations     Conversation[]
+  lessonCompletions LessonCompletion[]
+}
+
+model RefreshToken {
+  id        String    @id @default(uuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String    @unique
+  expiresAt DateTime
+  revokedAt DateTime?
+  createdAt DateTime  @default(now())
+}
+
+model Conversation {
+  id                 String   @id @default(uuid())
+  userId             String
+  user               User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  topic              String?
+  targetLanguageCode String
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  messages Message[]
+}
+
+model Message {
+  id             String       @id @default(uuid())
+  conversationId String
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  role           String       // "user" or "assistant"
+  content        String
+  createdAt      DateTime     @default(now())
+}
+
+model Lesson {
+  id                 String           @id @default(uuid())
+  title              String
+  description        String
+  targetLanguageCode String
+  difficulty         ProficiencyLevel @default(A1)
+  xpReward           Int              @default(20)
+  orderIndex         Int              @default(0)
+  createdAt          DateTime         @default(now())
+
+  vocabItems  VocabItem[]
+  completions LessonCompletion[]
+}
+
+model VocabItem {
+  id          String  @id @default(uuid())
+  lessonId    String
+  lesson      Lesson  @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  phrase      String
+  translation String
+  notes       String?
+  orderIndex  Int     @default(0)
+}
+
+model LessonCompletion {
+  id          String   @id @default(uuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  lessonId    String
+  lesson      Lesson   @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  xpAwarded   Int
+  completedAt DateTime @default(now())
+
+  @@unique([userId, lessonId])
+}
